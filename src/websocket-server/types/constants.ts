@@ -25,3 +25,9 @@ export const CONSTANTS_SHIP_TYPE = {
   LARGE: 'large',
   HUGE: 'huge',
 } as const;
+
+export const CONSTANTS_DATA_FIELDS = {
+  TYPE: 'type',
+  DATA: 'data',
+  ID: 'id',
+} as const;

@@ -1,22 +1,40 @@
-import { RawData, WebSocket } from 'ws';
+import { RawData, WebSocketServer } from 'ws';
+import { CONSTANTS_DATA_FIELDS } from '../types/constants';
+import { WebSocketStateClient } from '../types/websocket-state-client.type';
+import { CreateDataHandlers } from './create-data-handlers';
 
 export class CreateHandlers {
-  public ws: WebSocket;
-  constructor() {
-    // wss.send('Hi');
+  public wsClient: WebSocketStateClient;
+  public wsServer: WebSocketServer;
+  private dataHandlers: CreateDataHandlers;
+
+  constructor(wsServer: WebSocketServer) {
+    this.wsServer = wsServer;
   }
 
-  public connection = (ws: WebSocket): void => {
-    this.ws = ws;
-    ws.on('error', console.error);
+  public clientConnection = (wsClient: WebSocketStateClient): void => {
+    this.wsClient = wsClient;
+    this.dataHandlers = new CreateDataHandlers(this.wsClient);
+    wsClient.on('error', console.error);
 
-    ws.on('message', this.message);
+    wsClient.on('message', this.message);
+    wsClient.on('close', this.disconnect);
 
-    ws.send('WebSocketServer ready to connect');
+    wsClient.send('WebSocketServer ready to connect');
   };
 
-  private message = (data: RawData): void => {
-    const dat = JSON.parse(data.toString());
+  private message = (webSocketData: RawData): void => {
+    const data = JSON.parse(webSocketData.toString());
+
+    const isValidData = this.validWebSocketData(data);
+
+    if (isValidData) {
+      const webSocketDataResponse = this.dataHandlers.webSocketDataHandler(data);
+
+      console.log('first', this.wsClient);
+      this.wsClient.send(webSocketDataResponse);
+    }
+    // this.webSocketDataHandler();
     //   {
     //     type: "reg",
     //     data:
@@ -28,20 +46,32 @@ export class CreateHandlers {
     //         },
     //     id: 0,
     // }
-    const dataObject = JSON.stringify({
-      name: dat.name,
-      index: 0,
-      error: false,
-      errorText: '',
-    });
-    const messageObject = {
-      type: 'reg',
-      data: dataObject,
-      id: 0,
-    };
-    console.log('received: %s', dat);
-    console.log('received this: %s', this);
 
-    this.ws.send(JSON.stringify(messageObject));
+    // const messageObject = {
+    //   type: 'reg',
+    //   data: dataObject,
+    //   id: 0,
+    // };
+    // console.log('received: %s', data);
+    // console.log('received this: %s', this);
+
+    // this.wsClient.send(JSON.stringify(messageObject));
+  };
+
+  private disconnect = (): void => {
+    console.log('WebSocket client disconnect');
+  };
+
+  private validWebSocketData = (wsClientData: unknown): boolean => {
+    const templateDataFields = Object.values(CONSTANTS_DATA_FIELDS);
+    if (wsClientData && typeof wsClientData === 'object') {
+      const keys = Object.keys(wsClientData);
+      if (templateDataFields.length === keys.length) {
+        return templateDataFields.every((templateDataField) => templateDataField in wsClientData);
+      }
+
+      return false;
+    }
+    return false;
   };
 }

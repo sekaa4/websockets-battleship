@@ -1,6 +1,6 @@
 import { CONSTANTS_TYPE } from '../constants';
 
-export interface UpdateWinners {
+export interface RandomAttack {
   type: typeof CONSTANTS_TYPE.RANDOM_ATTACK;
   data: {
     gameID: number;
