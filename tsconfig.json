@@ -2,7 +2,7 @@
   "compilerOptions": {
     "rootDir": ".",
     "outDir": "dist",
-    "target": "ES5",
+    "target": "ES6",
     "baseUrl": ".",
     "module": "CommonJS",
     "sourceMap": true,

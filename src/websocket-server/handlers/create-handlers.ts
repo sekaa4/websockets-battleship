@@ -12,16 +12,16 @@ export class CreateHandlers {
     this.wsServer = wsServer;
   }
 
-  public clientConnection = (wsClient: WebSocketStateClient): void => {
+  public clientConnection(wsClient: WebSocketStateClient): void {
     this.wsClient = wsClient;
-    this.dataHandlers = new CreateDataHandlers(this.wsClient);
+    this.dataHandlers = new CreateDataHandlers(wsClient, this.wsServer);
     wsClient.on('error', console.error);
 
     wsClient.on('message', this.message);
     wsClient.on('close', this.disconnect);
 
     wsClient.send('WebSocketServer ready to connect');
-  };
+  }
 
   private message = (webSocketData: RawData): void => {
     const data = JSON.parse(webSocketData.toString());
@@ -31,31 +31,12 @@ export class CreateHandlers {
     if (isValidData) {
       const webSocketDataResponse = this.dataHandlers.webSocketDataHandler(data);
 
-      console.log('first', this.wsClient);
-      this.wsClient.send(webSocketDataResponse);
+      // console.log('first', this.wsClient);
+
+      if (webSocketDataResponse) {
+        this.wsClient.send(webSocketDataResponse);
+      }
     }
-    // this.webSocketDataHandler();
-    //   {
-    //     type: "reg",
-    //     data:
-    //         {
-    //             name: <string>,
-    //             index: <number>,
-    //             error: <bool>,
-    //             errorText: <string>,
-    //         },
-    //     id: 0,
-    // }
-
-    // const messageObject = {
-    //   type: 'reg',
-    //   data: dataObject,
-    //   id: 0,
-    // };
-    // console.log('received: %s', data);
-    // console.log('received this: %s', this);
-
-    // this.wsClient.send(JSON.stringify(messageObject));
   };
 
   private disconnect = (): void => {

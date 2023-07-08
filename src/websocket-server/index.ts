@@ -1,5 +1,6 @@
 import { WebSocketServer } from 'ws';
 import { CreateHandlers } from './handlers/create-handlers';
+import { WebSocketStateClient } from './types/websocket-state-client.type';
 
 export class CreateWebSocketServer {
   public wss: WebSocketServer;
@@ -7,12 +8,15 @@ export class CreateWebSocketServer {
   constructor(public port: number) {
     this.port = port;
     this.wss = new WebSocketServer({ port });
-    this.handlers = new CreateHandlers(this.wss);
+
+    // this.handlers = new CreateHandlers(this.wss);
     this.createListener();
   }
 
   private createListener(): void {
-    this.wss.on('connection', this.handlers.clientConnection);
+    this.wss.on('connection', (wsClient: WebSocketStateClient) => {
+      new CreateHandlers(this.wss).clientConnection(wsClient);
+    });
     this.wss.on('close', this.serverClose);
   }
 

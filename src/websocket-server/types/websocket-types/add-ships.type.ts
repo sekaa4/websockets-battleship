@@ -4,9 +4,9 @@ import { Ship } from './ship.type';
 export interface AddShips {
   type: typeof CONSTANTS_TYPE.ADD_SHIPS;
   data: {
-    gameId: number;
+    gameId: string;
     ships: Ship[];
-    indexPlayer: number;
+    indexPlayer: string;
   };
   id: number;
 }
