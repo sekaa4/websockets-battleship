@@ -10,6 +10,10 @@ export interface WebSocketStateClient extends WebSocket {
     idGame: string;
     ships: Ship[];
     startPosition: string;
-    currentPlayer: string;
+    fieldShips: number[][];
+    // shipsState: {
+    //   shipsPosition: number[][];
+
+    // }
   };
 }

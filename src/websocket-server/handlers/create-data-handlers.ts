@@ -11,6 +11,7 @@ import { CreateNewRoom } from '../types/websocket-types/create-new-room.type';
 import WebSocket, { WebSocketServer } from 'ws';
 import { AddUserToRoom } from '../types/websocket-types/add-user-to-room.type';
 import { AddShips } from '../types/websocket-types/add-ships.type';
+import { RequestAttack } from '../types/websocket-types/attack.type';
 
 export class CreateDataHandlers {
   public clientState: WebSocketStateClient;
@@ -31,21 +32,38 @@ export class CreateDataHandlers {
             ? JSON.parse(requestWebSocketData.data)
             : requestWebSocketData.data;
 
-        return this.responseHandlers.registrationPlayerHandler(this.isValidData<RequestReg['data']>(webSocketData));
+        const responseRegObject = this.responseHandlers.registrationPlayerHandler(
+          this.isValidData<RequestReg['data']>(webSocketData),
+        );
+
+        this.clientState.send(responseRegObject);
+        const rooms = this.responseHandlers.updateRoomHandler();
+        this.clientState.send(rooms);
+        //! Update winners
+        return;
       }
       case CONSTANTS_TYPE.CREATE_ROOM: {
         const webSocketData = requestWebSocketData.data;
         const clients = this.wsServer.clients as Set<WebSocketStateClient>;
         const validData = this.isValidData<CreateNewRoom['data']>(webSocketData);
 
-        if (typeof validData !== 'string') {
-          return JSON.stringify({ type: CONSTANTS_TYPE.CREATE_ROOM, ...validData });
-        }
+        // if (typeof validData !== 'string') {
+        //   return JSON.stringify({ type: CONSTANTS_TYPE.CREATE_ROOM, ...validData });
+        // }
 
-        const rooms = this.responseHandlers.createRoomHandler(validData);
+        const error = this.responseHandlers.createRoomHandler(validData);
+        if (error) {
+          return JSON.stringify({
+            ...error,
+            type: CONSTANTS_TYPE.ADD_USER_TO_ROOM,
+          });
+        }
+        // const rooms =
         for (const client of clients) {
-          if (client.readyState === WebSocket.OPEN) {
+          if (client.readyState === WebSocket.OPEN && client.playerInfo) {
+            const rooms = this.responseHandlers.updateRoomHandler();
             client.send(rooms);
+            //! Update winners
           }
         }
         return;
@@ -65,9 +83,9 @@ export class CreateDataHandlers {
           });
         }
 
-        const game = this.responseHandlers.createGameHandler(validDataOrError);
+        const isComplete = this.responseHandlers.createGameHandler(validDataOrError);
 
-        if (!game) {
+        if (!isComplete) {
           return JSON.stringify({
             type: CONSTANTS_TYPE.ADD_USER_TO_ROOM,
             error: true,
@@ -75,14 +93,28 @@ export class CreateDataHandlers {
           });
         }
 
+        if (isComplete === 'exist') {
+          return JSON.stringify({
+            type: CONSTANTS_TYPE.ADD_USER_TO_ROOM,
+            error: true,
+            errorText: 'Room with user already exists',
+          });
+        }
+
         const clients = this.wsServer.clients as Set<WebSocketStateClient>;
         const rooms = this.responseHandlers.updateRoomHandler();
 
         for (const client of clients) {
-          if (client.readyState === WebSocket.OPEN && client.playerInfo.roomId === this.clientState.playerInfo.roomId) {
+          if (
+            client.readyState === WebSocket.OPEN &&
+            client.playerInfo &&
+            client.playerInfo.roomId === this.clientState.playerInfo.roomId
+          ) {
+            console.log('client.playerInfo.roomId', client.playerInfo.roomId);
             client.playerInfo.idGame = this.clientState.playerInfo.idGame;
-            client.send(game);
+            const gameResponse = this.responseHandlers.createGameResponse(client);
             client.send(rooms);
+            client.send(gameResponse);
           } else if (client.readyState === WebSocket.OPEN) {
             client.send(rooms);
           }
@@ -125,13 +157,37 @@ export class CreateDataHandlers {
               client.playerInfo.idGame === this.clientState.playerInfo.idGame
             ) {
               client.send(client.playerInfo.startPosition);
-              const currentPlayer = client.playerInfo.currentPlayer;
-              const currentPlayerResponse = this.responseHandlers.updateCurrentPlayerHandler(currentPlayer);
+              const gameId = client.playerInfo.idGame;
+              const currentPlayerResponse = this.responseHandlers.updateCurrentPlayerHandler(gameId);
               client.send(currentPlayerResponse);
             }
           }
         }
 
+        return;
+      }
+
+      case CONSTANTS_TYPE.ATTACK: {
+        const clients = this.wsServer.clients as Set<WebSocketStateClient>;
+        const webSocketData: DataRequest =
+          typeof requestWebSocketData.data === 'string'
+            ? JSON.parse(requestWebSocketData.data)
+            : requestWebSocketData.data;
+        const validDataOrError = this.isValidData<RequestAttack['data']>(webSocketData);
+
+        if ('error' in validDataOrError) {
+          return JSON.stringify({
+            ...this.responseHandlers.createErrorObject(validDataOrError),
+            type: CONSTANTS_TYPE.ATTACK,
+          });
+        }
+
+        const attack = this.responseHandlers.attackHandler(validDataOrError);
+        for (const client of clients) {
+          if (client.readyState === WebSocket.OPEN && client.playerInfo.idGame === this.clientState.playerInfo.idGame) {
+            client.send(attack);
+          }
+        }
         return;
       }
 
@@ -173,6 +229,21 @@ export class CreateDataHandlers {
       typeof data.gameId === 'string' &&
       'ships' in data &&
       Array.isArray(data.ships) &&
+      'indexPlayer' in data &&
+      typeof data.indexPlayer === 'string'
+    ) {
+      return webSocketData as T;
+    }
+
+    if (
+      data &&
+      typeof data === 'object' &&
+      'gameId' in data &&
+      typeof data.gameId === 'string' &&
+      'x' in data &&
+      typeof data.x === 'number' &&
+      'y' in data &&
+      typeof data.y === 'number' &&
       'indexPlayer' in data &&
       typeof data.indexPlayer === 'string'
     ) {

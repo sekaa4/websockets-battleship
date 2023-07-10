@@ -4,10 +4,10 @@ import { ValueOf } from '../utils.type';
 export interface RequestAttack {
   type: typeof CONSTANTS_TYPE.ATTACK;
   data: {
-    gameID: number;
+    gameId: string;
     x: number;
     y: number;
-    indexPlayer: number;
+    indexPlayer: string;
   };
   id: number;
 }
