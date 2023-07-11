@@ -223,6 +223,13 @@ export class CreateDataHandlers {
               }
             }
             const gameId = client.playerInfo.idGame;
+            const finish = this.responseHandlers.checkFinishGame(gameId);
+            if (finish) {
+              client.send(finish);
+              //! Update winners
+              return;
+            }
+
             const currentPlayerResponse = this.responseHandlers.updateCurrentPlayerHandler(gameId);
             client.send(currentPlayerResponse);
           }

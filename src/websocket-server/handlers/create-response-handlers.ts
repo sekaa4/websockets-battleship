@@ -20,12 +20,15 @@ import { CellState } from '../types/cell-state.type';
 import { Position } from '../types/position.type';
 import { AttackAround } from '../types/attack-around.type';
 import { RandomAttack } from '../types/websocket-types/random-attack.type';
+import { Winner } from '../types/winner.type';
 
 const usersData: DataUser[] = [];
 
 const rooms: Room[] = [];
 
 const games: Game[] = [];
+
+const winners: Winner[] = [];
 export class CreateResponseHandlers {
   public clientState: WebSocketStateClient;
   constructor(wsClient: WebSocketStateClient) {
@@ -89,6 +92,7 @@ export class CreateResponseHandlers {
             name,
             index,
             fieldShips: [],
+            shipsAlive: 10,
           },
         ],
       };
@@ -113,7 +117,7 @@ export class CreateResponseHandlers {
 
     const room = rooms.find((room) => room.roomId === roomId);
 
-    room?.roomUsers.push({ index, name, fieldShips: [] });
+    room?.roomUsers.push({ index, name, fieldShips: [], shipsAlive: 10 });
     const gameUsers = [...(room?.roomUsers as User[])];
     games.push({ stage: 'prepare', idGame, gameUsers, currentPlayer: '' });
 
@@ -218,6 +222,7 @@ export class CreateResponseHandlers {
               return response;
             } else if (health === cell.health) {
               cell.status = 'killed';
+
               const killedPositions = cell.shots;
               const aroundPositions = cell.missAroundPosition.filter((miss) => {
                 for (const shot of killedPositions) {
@@ -229,6 +234,9 @@ export class CreateResponseHandlers {
                 return true;
               });
 
+              user.shipsAlive--;
+              // game.stage === 'finish';
+              game.stage = user.shipsAlive === 0 ? 'finish' : game.stage;
               console.log('with killed positions', cell.missAroundPosition);
               console.log('without killed positions', aroundPositions);
 
@@ -313,6 +321,42 @@ export class CreateResponseHandlers {
       id: 0,
     };
     return JSON.stringify(dataObjectCreateGameResponse);
+  }
+
+  public checkFinishGame(gameId: string): false | string {
+    const game = games.find((game) => game.idGame === gameId);
+
+    if (game && game.stage === 'finish') {
+      const winUser = game.gameUsers.find((user) => user.index === game.currentPlayer);
+
+      if (winUser) {
+        const isWinUserExist = winners.find((user) => user.name === winUser.name);
+        if (isWinUserExist) {
+          isWinUserExist.wins++;
+        } else {
+          const winData = {
+            name: winUser.name,
+            wins: 1,
+          };
+
+          winners.push(winData);
+        }
+      }
+
+      const data = {
+        winPlayer: game.currentPlayer,
+      };
+
+      const dataObjectCreateGameResponse = {
+        type: CONSTANTS_TYPE.FINISH,
+        data: JSON.stringify(data),
+        id: 0,
+      };
+
+      return JSON.stringify(dataObjectCreateGameResponse);
+    }
+
+    return false;
   }
 
   private createFieldShips = (ships: Ship[]): (number | CellState)[][] => {
