@@ -183,9 +183,32 @@ export class CreateDataHandlers {
         }
 
         const attack = this.responseHandlers.attackHandler(validDataOrError);
+
+        if (typeof attack === 'object' && Object.hasOwn(attack, 'error')) {
+          return JSON.stringify({
+            ...attack,
+            type: CONSTANTS_TYPE.ATTACK,
+          });
+        }
+
         for (const client of clients) {
           if (client.readyState === WebSocket.OPEN && client.playerInfo.idGame === this.clientState.playerInfo.idGame) {
-            client.send(attack);
+            if (typeof attack === 'string') {
+              client.send(attack);
+            } else if (typeof attack === 'object' && 'currentPlayer' in attack) {
+              const { aroundPositions, killedPositions, currentPlayer } = attack;
+              for (const position of killedPositions) {
+                const killedResponse = this.responseHandlers.createAttackResponse(currentPlayer, 'killed', position);
+                client.send(killedResponse);
+              }
+              for (const position of aroundPositions) {
+                const missResponse = this.responseHandlers.createAttackResponse(currentPlayer, 'miss', position);
+                client.send(missResponse);
+              }
+            }
+            const gameId = client.playerInfo.idGame;
+            const currentPlayerResponse = this.responseHandlers.updateCurrentPlayerHandler(gameId);
+            client.send(currentPlayerResponse);
           }
         }
         return;

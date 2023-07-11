@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-non-null-assertion */
 /* eslint-disable unicorn/new-for-builtins */
 /* eslint-disable max-lines-per-function */
 import { randomUUID } from 'node:crypto';
@@ -15,6 +16,9 @@ import { Game } from '../types/game.type';
 import { Ship } from '../types/websocket-types/ship.type';
 import { AddShips } from '../types/websocket-types/add-ships.type';
 import { RequestAttack } from '../types/websocket-types/attack.type';
+import { CellState } from '../types/cell-state.type';
+import { Position } from '../types/position.type';
+import { AttackAround } from '../types/attack-around.type';
 
 const usersData: DataUser[] = [];
 
@@ -67,6 +71,13 @@ export class CreateResponseHandlers {
   public createRoomHandler = (webSocketData: string | ResponseValidPlayer): void | ResponseError => {
     if (typeof webSocketData === 'string') {
       const { index, name } = this.clientState.playerInfo;
+      const isRoomExist =
+        rooms.length > 0 && rooms.find((room) => room.roomUsers.find((user) => user.index === index)?.index === index);
+
+      if (isRoomExist) {
+        return this.createErrorObject();
+      }
+
       const roomId = randomUUID();
       this.clientState.playerInfo.roomId = roomId;
 
@@ -76,26 +87,12 @@ export class CreateResponseHandlers {
           {
             name,
             index,
-            ships: [],
+            fieldShips: [],
           },
         ],
       };
-
-      const isRoomExist = rooms.find((room) => room.roomUsers.find((user) => user.index === index)?.index === index);
-
-      if (isRoomExist) {
-        return this.createErrorObject();
-      }
-
       rooms.push(room);
 
-      // const dataObjectUpdateRoomResponse = {
-      //   type: CONSTANTS_TYPE.UPDATE_ROOM,
-      //   data: JSON.stringify(rooms),
-      //   id: 0,
-      // };
-
-      // return JSON.stringify(dataObjectUpdateRoomResponse);
       return;
     }
     return this.createErrorObject(webSocketData);
@@ -115,7 +112,7 @@ export class CreateResponseHandlers {
 
     const room = rooms.find((room) => room.roomId === roomId);
 
-    room?.roomUsers.push({ index, name, ships: [] });
+    room?.roomUsers.push({ index, name, fieldShips: [] });
     const gameUsers = [...(room?.roomUsers as User[])];
     games.push({ stage: 'prepare', idGame, gameUsers, currentPlayer: '' });
 
@@ -142,12 +139,13 @@ export class CreateResponseHandlers {
 
     if (idGame === gameId && game) {
       this.clientState.playerInfo.ships = ships;
-      this.clientState.playerInfo.fieldShips = this.createFieldShips(ships);
+      const fieldShips = this.createFieldShips(ships);
+      this.clientState.playerInfo.fieldShips = fieldShips;
 
       const users = game.gameUsers;
       const user = users.find((user) => user.index === indexPlayer);
       if (user) {
-        user.ships = ships;
+        user.fieldShips = fieldShips;
       }
       console.log('stage', game.stage);
       const isStageReady = game.stage === 'ready';
@@ -178,29 +176,82 @@ export class CreateResponseHandlers {
     return '';
   };
 
-  public attackHandler = (webSocketData: RequestAttack['data']): string => {
-    const { fieldShips } = this.clientState.playerInfo;
+  public attackHandler = (webSocketData: RequestAttack['data']): string | AttackAround | ResponseError => {
     const { gameId, x, y, indexPlayer } = webSocketData;
     const game = games.find((game) => game.idGame === gameId);
     // console.log('index', index);
     // console.log('indexPlayer', indexPlayer);
 
-    if (game) {
-      const nextPlayer = game.gameUsers.find((user) => user.index !== indexPlayer);
+    if (game && game.currentPlayer === indexPlayer) {
+      const nextPlayer = game.gameUsers.find((user) => user.index !== game.currentPlayer);
+      let response: string;
+
+      const users = game.gameUsers;
+      const user = users.find((user) => user.index !== indexPlayer);
+
+      if (user) {
+        const fieldShips = user.fieldShips;
+        const position = { x, y };
+        if (fieldShips[y]?.[x] === 0) {
+          if (nextPlayer) {
+            game.currentPlayer = nextPlayer.index;
+          }
+          response = this.createAttackResponse(indexPlayer, 'miss', position);
+          return response;
+        }
+        if (typeof fieldShips[y]?.[x] === 'object') {
+          const cell = fieldShips[y]?.[x] as CellState;
+          // const health = cell.health;
+          const shot = cell.shots.find((shot) => shot.x === x && shot.y === y);
+
+          if (shot) {
+            if (nextPlayer) {
+              game.currentPlayer = nextPlayer.index;
+            }
+            response = this.createAttackResponse(indexPlayer, 'miss', position);
+            return response;
+          } else {
+            const health = cell.shots.push(position);
+            if (health < cell.health) {
+              response = this.createAttackResponse(indexPlayer, 'shot', position);
+              return response;
+            } else if (health === cell.health) {
+              cell.status = 'killed';
+              const killedPositions = cell.shots;
+              const aroundPositions = cell.missAroundPosition.filter((miss) => {
+                for (const shot of killedPositions) {
+                  if (miss.x === shot.x && miss.y === shot.y) {
+                    return false;
+                  }
+                }
+
+                return true;
+              });
+
+              console.log('with killed positions', cell.missAroundPosition);
+              console.log('without killed positions', aroundPositions);
+              // response = this.createAttackResponse(indexPlayer, 'killed', position);
+              return { currentPlayer: indexPlayer, killedPositions, aroundPositions };
+            }
+          }
+
+          // response = this.createAttackResponse(indexPlayer, 'miss', position);
+          // return response;
+        }
+        // user.ships = ships;
+      }
       // const userShips = game.gameUsers.find((user) => user.index === indexPlayer)?.ships;
       // const ship = userShips;
 
-      console.log('position', x, y);
-      console.log('field222', fieldShips.toString());
+      // console.log('position', x, y);
+      // console.log('field222', fieldShips.toString());
 
-      if (game.currentPlayer === indexPlayer && nextPlayer) {
-        game.currentPlayer = nextPlayer.index;
-      }
       // userShips && this.createFieldShips(userShips);
 
+      return this.createErrorObject();
       // return JSON.stringify(dataObjectCreateGameResponse);
     }
-    return '';
+    return this.createErrorObject('Cannot attack, wait your turn');
   };
 
   public updateCurrentPlayerHandler = (idGame: string): string => {
@@ -226,14 +277,15 @@ export class CreateResponseHandlers {
     return JSON.stringify(dataObjectUpdateRoomResponse);
   };
 
-  public createErrorObject = (data?: ResponseValidPlayer): ResponseError => {
+  public createErrorObject = (data: ResponseValidPlayer | string = 'Invalid request'): ResponseError => {
+    const errorText = typeof data === 'object' ? data.errorText : data;
     const errorObject = {
       type: CONSTANTS_TYPE.REG,
       data: JSON.stringify({
         name: '',
         index: '',
         error: true,
-        errorText: data?.errorText ?? 'Invalid request',
+        errorText,
       }),
       id: 0,
     };
@@ -254,8 +306,22 @@ export class CreateResponseHandlers {
     return JSON.stringify(dataObjectCreateGameResponse);
   }
 
-  private createFieldShips = (ships: Ship[]): number[][] => {
-    const field: number[][] = Array(10)
+  public createAttackResponse(index: string, status: string, position: Position): string {
+    const data = {
+      position,
+      currentPlayer: index,
+      status,
+    };
+    const dataObjectCreateGameResponse = {
+      type: CONSTANTS_TYPE.ATTACK,
+      data: JSON.stringify(data),
+      id: 0,
+    };
+    return JSON.stringify(dataObjectCreateGameResponse);
+  }
+
+  private createFieldShips = (ships: Ship[]): (number | CellState)[][] => {
+    const field: (number | CellState)[][] = Array(10)
       .fill(0)
       .map(() => Array(10).fill(0));
     console.log('field', field);
@@ -265,21 +331,55 @@ export class CreateResponseHandlers {
         position: { x, y },
         direction,
         length,
+        type,
+        position,
       } = ship;
 
       console.log('direction', direction);
       console.log('letngth', length);
       console.log('position', x, y);
-      if (field?.[x]?.[y] === 0) {
+
+      const cell: CellState = {
+        type,
+        length,
+        health: length,
+        shots: [],
+        startPosition: position,
+        missAroundPosition: [],
+        status: 'alive',
+      };
+
+      if (field[y]?.[x] === 0) {
         let index = 0;
+        const missAround = cell.missAroundPosition;
         if (direction === false || length === 1) {
+          for (let row = -1; row <= 1; row++) {
+            for (let column = -1; column <= length; column++) {
+              missAround.push({ x: x + column, y: y + row });
+            }
+            // const element = array[index];
+            // if (y - 1 >= 0 && y + 1 <= 9 && x - 1 >= 0 && x + 1 <= 9) {
+            //   missAround.push({ x: x + index, y: y - 1 });
+            // }
+          }
+
           while (index < length) {
-            field[y]![x + index] = 1;
+            field[y]![x + index] = cell;
             index++;
           }
         } else {
+          for (let row = -1; row <= length; row++) {
+            for (let column = -1; column <= 1; column++) {
+              missAround.push({ x: x + column, y: y + row });
+            }
+            // const element = array[index];
+            // if (y - 1 >= 0 && y + 1 <= 9 && x - 1 >= 0 && x + 1 <= 9) {
+            //   missAround.push({ x: x + index, y: y - 1 });
+            // }
+          }
+
           while (index < length) {
-            field[y + index]![x] = 1;
+            field[y + index]![x] = cell;
             index++;
           }
         }

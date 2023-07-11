@@ -1,11 +1,10 @@
 import { CONSTANTS_SHIP_TYPE } from '../constants';
+import { Position } from '../position.type';
+import { ValueOf } from '../utils.type';
 
 export interface Ship {
-  position: {
-    x: number;
-    y: number;
-  };
+  position: Position;
   direction: boolean;
   length: number;
-  type: typeof CONSTANTS_SHIP_TYPE;
+  type: ValueOf<typeof CONSTANTS_SHIP_TYPE>;
 }

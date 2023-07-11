@@ -1,4 +1,5 @@
 import WebSocket from 'ws';
+import { CellState } from './cell-state.type';
 import { Ship } from './websocket-types/ship.type';
 
 export interface WebSocketStateClient extends WebSocket {
@@ -10,10 +11,6 @@ export interface WebSocketStateClient extends WebSocket {
     idGame: string;
     ships: Ship[];
     startPosition: string;
-    fieldShips: number[][];
-    // shipsState: {
-    //   shipsPosition: number[][];
-
-    // }
+    fieldShips: (number | CellState)[][];
   };
 }

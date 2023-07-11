@@ -1,7 +1,7 @@
-import { Ship } from './websocket-types/ship.type';
+import { CellState } from './cell-state.type';
 
 export interface User {
   name: string;
   index: string;
-  ships: Ship[];
+  fieldShips: (number | CellState)[][];
 }
