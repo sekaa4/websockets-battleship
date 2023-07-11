@@ -25,7 +25,6 @@ export class CreateDataHandlers {
     this.responseHandlers = new CreateResponseHandlers(wsClient);
   }
   public webSocketDataHandler = (requestWebSocketData: BasePacket): string | void => {
-    // console.log(requestWebSocketData.type);
     switch (requestWebSocketData.type) {
       case CONSTANTS_TYPE.REG: {
         const webSocketData: DataRequest =
@@ -39,7 +38,9 @@ export class CreateDataHandlers {
 
         this.clientState.send(responseRegObject);
         const rooms = this.responseHandlers.updateRoomHandler();
+
         this.clientState.send(rooms);
+        this.clientState.send(this.responseHandlers.updateWinnersHandler());
         //! Update winners
         return;
       }
@@ -48,10 +49,6 @@ export class CreateDataHandlers {
         const clients = this.wsServer.clients as Set<WebSocketStateClient>;
         const validData = this.isValidData<CreateNewRoom['data']>(webSocketData);
 
-        // if (typeof validData !== 'string') {
-        //   return JSON.stringify({ type: CONSTANTS_TYPE.CREATE_ROOM, ...validData });
-        // }
-
         const error = this.responseHandlers.createRoomHandler(validData);
         if (error) {
           return JSON.stringify({
@@ -59,12 +56,11 @@ export class CreateDataHandlers {
             type: CONSTANTS_TYPE.ADD_USER_TO_ROOM,
           });
         }
-        // const rooms =
+
         for (const client of clients) {
           if (client.readyState === WebSocket.OPEN && client.playerInfo) {
             const rooms = this.responseHandlers.updateRoomHandler();
             client.send(rooms);
-            //! Update winners
           }
         }
         return;
@@ -111,12 +107,11 @@ export class CreateDataHandlers {
             client.playerInfo &&
             client.playerInfo.roomId === this.clientState.playerInfo.roomId
           ) {
-            console.log('client.playerInfo.roomId', client.playerInfo.roomId);
             client.playerInfo.idGame = this.clientState.playerInfo.idGame;
             const gameResponse = this.responseHandlers.createGameResponse(client);
             client.send(rooms);
             client.send(gameResponse);
-          } else if (client.readyState === WebSocket.OPEN) {
+          } else if (client.readyState === WebSocket.OPEN && client.playerInfo) {
             client.send(rooms);
           }
         }
@@ -155,6 +150,7 @@ export class CreateDataHandlers {
           for (const client of clients) {
             if (
               client.readyState === WebSocket.OPEN &&
+              client.playerInfo &&
               client.playerInfo.idGame === this.clientState.playerInfo.idGame
             ) {
               client.send(client.playerInfo.startPosition);
@@ -207,8 +203,13 @@ export class CreateDataHandlers {
           });
         }
 
+        let count = 1;
         for (const client of clients) {
-          if (client.readyState === WebSocket.OPEN && client.playerInfo.idGame === this.clientState.playerInfo.idGame) {
+          if (
+            client.readyState === WebSocket.OPEN &&
+            client.playerInfo &&
+            client.playerInfo.idGame === this.clientState.playerInfo.idGame
+          ) {
             if (typeof attack === 'string') {
               client.send(attack);
             } else if (typeof attack === 'object' && 'currentPlayer' in attack) {
@@ -224,14 +225,20 @@ export class CreateDataHandlers {
             }
             const gameId = client.playerInfo.idGame;
             const finish = this.responseHandlers.checkFinishGame(gameId);
-            if (finish) {
-              client.send(finish);
-              //! Update winners
-              return;
-            }
-
             const currentPlayerResponse = this.responseHandlers.updateCurrentPlayerHandler(gameId);
             client.send(currentPlayerResponse);
+
+            if (finish) {
+              client.send(finish);
+              const rooms = this.responseHandlers.updateRoomHandler();
+              client.send(rooms);
+              if (count === 2) {
+                count = 1;
+                this.updateWinners();
+              } else {
+                count++;
+              }
+            }
           }
         }
         return;
@@ -241,8 +248,18 @@ export class CreateDataHandlers {
         break;
       }
     }
-    return 'create';
+    return;
   };
+
+  protected updateWinners(): void {
+    const clients = this.wsServer.clients as Set<WebSocketStateClient>;
+
+    for (const client of clients) {
+      if (client.readyState === WebSocket.OPEN && client.playerInfo) {
+        client.send(this.responseHandlers.updateWinnersHandler());
+      }
+    }
+  }
 
   protected isValidData = <T extends DataRequest>(webSocketData: DataRequest): T | ResponseValidPlayer => {
     const data = webSocketData;

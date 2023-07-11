@@ -119,7 +119,7 @@ export class CreateResponseHandlers {
 
     room?.roomUsers.push({ index, name, fieldShips: [], shipsAlive: 10 });
     const gameUsers = [...(room?.roomUsers as User[])];
-    games.push({ stage: 'prepare', idGame, gameUsers, currentPlayer: '' });
+    games.push({ stage: 'prepare', idGame, gameUsers, currentPlayer: '', gameWinner: '' });
 
     for (const user of gameUsers) {
       rooms.splice(
@@ -139,9 +139,6 @@ export class CreateResponseHandlers {
     const { gameId, indexPlayer, ships } = webSocketData;
     const game = games.find((game) => game.idGame === gameId);
 
-    console.log('index', index);
-    console.log('indexPlayer', indexPlayer);
-
     if (idGame === gameId && game) {
       this.clientState.playerInfo.ships = ships;
       const fieldShips = this.createFieldShips(ships);
@@ -152,7 +149,6 @@ export class CreateResponseHandlers {
       if (user) {
         user.fieldShips = fieldShips;
       }
-      console.log('stage', game.stage);
       const isStageReady = game.stage === 'ready';
 
       if (isStageReady) {
@@ -235,10 +231,7 @@ export class CreateResponseHandlers {
               });
 
               user.shipsAlive--;
-              // game.stage === 'finish';
               game.stage = user.shipsAlive === 0 ? 'finish' : game.stage;
-              console.log('with killed positions', cell.missAroundPosition);
-              console.log('without killed positions', aroundPositions);
 
               return { currentPlayer: indexPlayer, killedPositions, aroundPositions };
             }
@@ -329,8 +322,9 @@ export class CreateResponseHandlers {
     if (game && game.stage === 'finish') {
       const winUser = game.gameUsers.find((user) => user.index === game.currentPlayer);
 
-      if (winUser) {
+      if (winUser && game.gameWinner === '') {
         const isWinUserExist = winners.find((user) => user.name === winUser.name);
+        game.gameWinner = winUser.index;
         if (isWinUserExist) {
           isWinUserExist.wins++;
         } else {
@@ -344,7 +338,7 @@ export class CreateResponseHandlers {
       }
 
       const data = {
-        winPlayer: game.currentPlayer,
+        winPlayer: game.gameWinner,
       };
 
       const dataObjectCreateGameResponse = {
@@ -359,11 +353,20 @@ export class CreateResponseHandlers {
     return false;
   }
 
+  public updateWinnersHandler(): string {
+    const dataObjectUpdateWinnersResponse = {
+      type: CONSTANTS_TYPE.UPDATE_WINNERS,
+      data: JSON.stringify(winners),
+      id: 0,
+    };
+
+    return JSON.stringify(dataObjectUpdateWinnersResponse);
+  }
+
   private createFieldShips = (ships: Ship[]): (number | CellState)[][] => {
     const field: (number | CellState)[][] = Array(10)
       .fill(0)
       .map(() => Array(10).fill(0));
-    console.log('field', field);
 
     for (const ship of ships) {
       const {
@@ -373,10 +376,6 @@ export class CreateResponseHandlers {
         type,
         position,
       } = ship;
-
-      console.log('direction', direction);
-      console.log('letngth', length);
-      console.log('position', x, y);
 
       const cell: CellState = {
         type,
@@ -416,8 +415,7 @@ export class CreateResponseHandlers {
         }
       }
     }
-    // eslint-disable-next-line unicorn/no-array-for-each
-    // field.forEach((value) => console.log(value.toString()));
+
     return field;
   };
 }

@@ -19,8 +19,6 @@ export class CreateHandlers {
 
     wsClient.on('message', this.message);
     wsClient.on('close', this.disconnect);
-
-    wsClient.send('WebSocketServer ready to connect');
   }
 
   private message = (webSocketData: RawData): void => {

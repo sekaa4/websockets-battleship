@@ -5,4 +5,5 @@ export interface Game {
   idGame: string;
   currentPlayer: string;
   gameUsers: User[];
+  gameWinner: string;
 }
