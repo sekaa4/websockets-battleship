@@ -19,6 +19,7 @@ import { RequestAttack } from '../types/websocket-types/attack.type';
 import { CellState } from '../types/cell-state.type';
 import { Position } from '../types/position.type';
 import { AttackAround } from '../types/attack-around.type';
+import { RandomAttack } from '../types/websocket-types/random-attack.type';
 
 const usersData: DataUser[] = [];
 
@@ -179,8 +180,6 @@ export class CreateResponseHandlers {
   public attackHandler = (webSocketData: RequestAttack['data']): string | AttackAround | ResponseError => {
     const { gameId, x, y, indexPlayer } = webSocketData;
     const game = games.find((game) => game.idGame === gameId);
-    // console.log('index', index);
-    // console.log('indexPlayer', indexPlayer);
 
     if (game && game.currentPlayer === indexPlayer) {
       const nextPlayer = game.gameUsers.find((user) => user.index !== game.currentPlayer);
@@ -201,14 +200,16 @@ export class CreateResponseHandlers {
         }
         if (typeof fieldShips[y]?.[x] === 'object') {
           const cell = fieldShips[y]?.[x] as CellState;
-          // const health = cell.health;
           const shot = cell.shots.find((shot) => shot.x === x && shot.y === y);
 
           if (shot) {
             if (nextPlayer) {
               game.currentPlayer = nextPlayer.index;
             }
-            response = this.createAttackResponse(indexPlayer, 'miss', position);
+            response =
+              cell.shots.length === cell.health
+                ? this.createAttackResponse(indexPlayer, 'killed', position)
+                : this.createAttackResponse(indexPlayer, 'shot', position);
             return response;
           } else {
             const health = cell.shots.push(position);
@@ -230,28 +231,22 @@ export class CreateResponseHandlers {
 
               console.log('with killed positions', cell.missAroundPosition);
               console.log('without killed positions', aroundPositions);
-              // response = this.createAttackResponse(indexPlayer, 'killed', position);
+
               return { currentPlayer: indexPlayer, killedPositions, aroundPositions };
             }
           }
-
-          // response = this.createAttackResponse(indexPlayer, 'miss', position);
-          // return response;
         }
-        // user.ships = ships;
       }
-      // const userShips = game.gameUsers.find((user) => user.index === indexPlayer)?.ships;
-      // const ship = userShips;
-
-      // console.log('position', x, y);
-      // console.log('field222', fieldShips.toString());
-
-      // userShips && this.createFieldShips(userShips);
-
       return this.createErrorObject();
-      // return JSON.stringify(dataObjectCreateGameResponse);
     }
     return this.createErrorObject('Cannot attack, wait your turn');
+  };
+
+  public randomAttackHandler = (webSocketData: RandomAttack['data']): string | AttackAround | ResponseError => {
+    const x = Math.floor(Math.random() * 10);
+    const y = Math.floor(Math.random() * 10);
+    const updateWebSocketData = { ...webSocketData, x, y };
+    return this.attackHandler(updateWebSocketData);
   };
 
   public updateCurrentPlayerHandler = (idGame: string): string => {
@@ -357,10 +352,6 @@ export class CreateResponseHandlers {
             for (let column = -1; column <= length; column++) {
               missAround.push({ x: x + column, y: y + row });
             }
-            // const element = array[index];
-            // if (y - 1 >= 0 && y + 1 <= 9 && x - 1 >= 0 && x + 1 <= 9) {
-            //   missAround.push({ x: x + index, y: y - 1 });
-            // }
           }
 
           while (index < length) {
@@ -372,10 +363,6 @@ export class CreateResponseHandlers {
             for (let column = -1; column <= 1; column++) {
               missAround.push({ x: x + column, y: y + row });
             }
-            // const element = array[index];
-            // if (y - 1 >= 0 && y + 1 <= 9 && x - 1 >= 0 && x + 1 <= 9) {
-            //   missAround.push({ x: x + index, y: y - 1 });
-            // }
           }
 
           while (index < length) {
@@ -386,7 +373,7 @@ export class CreateResponseHandlers {
       }
     }
     // eslint-disable-next-line unicorn/no-array-for-each
-    field.forEach((value) => console.log(value.toString()));
+    // field.forEach((value) => console.log(value.toString()));
     return field;
   };
 }

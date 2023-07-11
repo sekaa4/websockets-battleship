@@ -12,6 +12,7 @@ import WebSocket, { WebSocketServer } from 'ws';
 import { AddUserToRoom } from '../types/websocket-types/add-user-to-room.type';
 import { AddShips } from '../types/websocket-types/add-ships.type';
 import { RequestAttack } from '../types/websocket-types/attack.type';
+import { RandomAttack } from '../types/websocket-types/random-attack.type';
 
 export class CreateDataHandlers {
   public clientState: WebSocketStateClient;
@@ -167,27 +168,42 @@ export class CreateDataHandlers {
         return;
       }
 
+      case CONSTANTS_TYPE.RANDOM_ATTACK:
       case CONSTANTS_TYPE.ATTACK: {
         const clients = this.wsServer.clients as Set<WebSocketStateClient>;
         const webSocketData: DataRequest =
           typeof requestWebSocketData.data === 'string'
             ? JSON.parse(requestWebSocketData.data)
             : requestWebSocketData.data;
-        const validDataOrError = this.isValidData<RequestAttack['data']>(webSocketData);
+
+        let validDataOrError: RandomAttack['data'] | RequestAttack['data'] | ResponseValidPlayer;
+        validDataOrError =
+          requestWebSocketData.type === CONSTANTS_TYPE.RANDOM_ATTACK
+            ? this.isValidData<RandomAttack['data']>(webSocketData)
+            : this.isValidData<RequestAttack['data']>(webSocketData);
 
         if ('error' in validDataOrError) {
           return JSON.stringify({
             ...this.responseHandlers.createErrorObject(validDataOrError),
-            type: CONSTANTS_TYPE.ATTACK,
+            type:
+              requestWebSocketData.type === CONSTANTS_TYPE.RANDOM_ATTACK
+                ? CONSTANTS_TYPE.RANDOM_ATTACK
+                : CONSTANTS_TYPE.ATTACK,
           });
         }
 
-        const attack = this.responseHandlers.attackHandler(validDataOrError);
+        const attack =
+          requestWebSocketData.type === CONSTANTS_TYPE.RANDOM_ATTACK
+            ? this.responseHandlers.randomAttackHandler(validDataOrError as RandomAttack['data'])
+            : this.responseHandlers.attackHandler(validDataOrError as RequestAttack['data']);
 
         if (typeof attack === 'object' && Object.hasOwn(attack, 'error')) {
           return JSON.stringify({
             ...attack,
-            type: CONSTANTS_TYPE.ATTACK,
+            type:
+              requestWebSocketData.type === CONSTANTS_TYPE.RANDOM_ATTACK
+                ? CONSTANTS_TYPE.RANDOM_ATTACK
+                : CONSTANTS_TYPE.ATTACK,
           });
         }
 
@@ -227,6 +243,23 @@ export class CreateDataHandlers {
     if (
       data &&
       typeof data === 'object' &&
+      'gameId' in data &&
+      typeof data.gameId === 'string' &&
+      'indexPlayer' in data &&
+      typeof data.indexPlayer === 'string'
+    ) {
+      if ('ships' in data && Array.isArray(data.ships)) {
+        return webSocketData as T;
+      }
+
+      if ('x' in data && typeof data.x === 'number' && 'y' in data && typeof data.y === 'number') {
+        return webSocketData as T;
+      }
+    }
+
+    if (
+      data &&
+      typeof data === 'object' &&
       'name' in data &&
       typeof data.name === 'string' &&
       data.name.length >= 5 &&
@@ -250,23 +283,6 @@ export class CreateDataHandlers {
       typeof data === 'object' &&
       'gameId' in data &&
       typeof data.gameId === 'string' &&
-      'ships' in data &&
-      Array.isArray(data.ships) &&
-      'indexPlayer' in data &&
-      typeof data.indexPlayer === 'string'
-    ) {
-      return webSocketData as T;
-    }
-
-    if (
-      data &&
-      typeof data === 'object' &&
-      'gameId' in data &&
-      typeof data.gameId === 'string' &&
-      'x' in data &&
-      typeof data.x === 'number' &&
-      'y' in data &&
-      typeof data.y === 'number' &&
       'indexPlayer' in data &&
       typeof data.indexPlayer === 'string'
     ) {
