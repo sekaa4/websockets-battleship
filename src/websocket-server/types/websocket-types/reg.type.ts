@@ -13,7 +13,7 @@ export interface ResponseReg {
   type: typeof CONSTANTS_TYPE.REG;
   data: {
     name: string;
-    index: number;
+    index: string;
     error: boolean;
     errorText: string;
   };

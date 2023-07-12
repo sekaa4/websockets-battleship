@@ -37,13 +37,16 @@ export class CreateDataHandlers {
         );
 
         this.clientState.send(responseRegObject);
-        const rooms = this.responseHandlers.updateRoomHandler();
 
-        this.clientState.send(rooms);
-        this.clientState.send(this.responseHandlers.updateWinnersHandler());
-        //! Update winners
+        if (responseRegObject.includes(`\"error\":false`)) {
+          const rooms = this.responseHandlers.updateRoomHandler();
+          this.clientState.send(rooms);
+          this.clientState.send(this.responseHandlers.updateWinnersHandler());
+        }
+
         return;
       }
+
       case CONSTANTS_TYPE.CREATE_ROOM: {
         const webSocketData = requestWebSocketData.data;
         const clients = this.wsServer.clients as Set<WebSocketStateClient>;
@@ -118,6 +121,7 @@ export class CreateDataHandlers {
 
         return;
       }
+
       case CONSTANTS_TYPE.ADD_SHIPS: {
         const webSocketData: DataRequest =
           typeof requestWebSocketData.data === 'string'

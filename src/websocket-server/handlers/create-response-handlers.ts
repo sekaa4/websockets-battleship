@@ -34,22 +34,35 @@ export class CreateResponseHandlers {
   constructor(wsClient: WebSocketStateClient) {
     this.clientState = wsClient;
   }
-  public registrationPlayerHandler = (webSocketData: RequestReg['data'] | ResponseValidPlayer): string => {
+  public registrationPlayerHandler = (webSocketData: DataUser | ResponseValidPlayer): string => {
     if ('error' in webSocketData) {
       return JSON.stringify(this.createErrorObject(webSocketData));
     }
 
     const { name, password } = webSocketData;
+    const isUserExists = this.checkUser(webSocketData);
 
-    const newUser = {
-      name: name,
-      password: password,
-    };
+    if (typeof isUserExists !== 'boolean') {
+      return JSON.stringify(isUserExists);
+    }
 
-    usersData.push(newUser);
+    let user: DataUser;
+
+    if (isUserExists) {
+      user = { ...webSocketData };
+    } else {
+      user = {
+        name: name,
+        password: password,
+      };
+
+      usersData.push(user);
+    }
+
+    console.log('usersData', usersData);
 
     this.clientState.playerInfo = {
-      ...newUser,
+      ...user,
       index: randomUUID(),
       roomId: '',
       idGame: '',
@@ -249,6 +262,24 @@ export class CreateResponseHandlers {
     const updateWebSocketData = { ...webSocketData, x, y };
     return this.attackHandler(updateWebSocketData);
   };
+
+  private checkUser(user: RequestReg['data']): boolean | ResponseError {
+    const { name, password } = user;
+
+    const userInData = usersData.find(({ name: nameInData }) => nameInData === name);
+
+    if (userInData) {
+      const isRightPassword = userInData.password === password;
+
+      if (isRightPassword) {
+        return true;
+      }
+
+      return this.createErrorObject('Incorrect password');
+    }
+
+    return false;
+  }
 
   public updateCurrentPlayerHandler = (idGame: string): string => {
     const game = games.find((game) => game.idGame === idGame);
