@@ -38,7 +38,7 @@ export class CreateDataHandlers {
 
         this.clientState.send(responseRegObject);
 
-        if (responseRegObject.includes(`\"error\":false`)) {
+        if (responseRegObject.includes(`false`)) {
           const rooms = this.responseHandlers.updateRoomHandler();
           this.clientState.send(rooms);
           this.clientState.send(this.responseHandlers.updateWinnersHandler());
@@ -264,6 +264,42 @@ export class CreateDataHandlers {
       }
     }
   }
+
+  public disconnectHandler = (index: string, roomId: string, idGame: string): string => {
+    console.log('index', index);
+    console.log('roomId', roomId);
+    console.log('idGame', idGame);
+    if (roomId) {
+      const roomsResponse = this.responseHandlers.updateRoomHandler(roomId);
+      const clients = this.wsServer.clients as Set<WebSocketStateClient>;
+
+      for (const client of clients) {
+        if (client.readyState === WebSocket.OPEN && client.playerInfo) {
+          client.send(roomsResponse);
+        }
+      }
+    }
+
+    if (idGame && index) {
+      const finishResponse = this.responseHandlers.finishGame(idGame, index);
+      const clients = this.wsServer.clients as Set<WebSocketStateClient>;
+
+      if (finishResponse) {
+        for (const client of clients) {
+          if (client.readyState === WebSocket.OPEN && client.playerInfo && client.playerInfo.idGame === idGame) {
+            client.send(finishResponse);
+          }
+
+          const rooms = this.responseHandlers.updateRoomHandler();
+          client.send(rooms);
+
+          this.updateWinners();
+        }
+      }
+    }
+
+    return '';
+  };
 
   protected isValidData = <T extends DataRequest>(webSocketData: DataRequest): T | ResponseValidPlayer => {
     const data = webSocketData;

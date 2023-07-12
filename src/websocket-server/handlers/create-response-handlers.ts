@@ -294,7 +294,15 @@ export class CreateResponseHandlers {
     return JSON.stringify(dataObjectUpdateRoomResponse);
   };
 
-  public updateRoomHandler = (): string => {
+  public updateRoomHandler = (roomId?: string): string => {
+    if (roomId) {
+      const roomIndex = rooms.findIndex((room) => room.roomId === roomId);
+
+      if (roomIndex !== -1) {
+        rooms.splice(roomIndex, 1);
+      }
+    }
+
     const dataObjectUpdateRoomResponse = {
       type: CONSTANTS_TYPE.UPDATE_ROOM,
       data: JSON.stringify(rooms),
@@ -382,6 +390,43 @@ export class CreateResponseHandlers {
     }
 
     return false;
+  }
+
+  public finishGame(gameId: string, indexPlayer: string): string {
+    const game = games.find((game) => game.idGame === gameId);
+
+    if (game) {
+      game.stage = 'finish';
+      const winUser = game.gameUsers.find((user) => user.index !== indexPlayer);
+
+      if (winUser && game.gameWinner === '') {
+        const isWinUserExist = winners.find((user) => user.name === winUser.name);
+        game.gameWinner = winUser.index;
+        if (isWinUserExist) {
+          isWinUserExist.wins++;
+        } else {
+          const winData = {
+            name: winUser.name,
+            wins: 1,
+          };
+
+          winners.push(winData);
+        }
+      }
+
+      const data = {
+        winPlayer: game.gameWinner,
+      };
+
+      const dataObjectCreateGameResponse = {
+        type: CONSTANTS_TYPE.FINISH,
+        data: JSON.stringify(data),
+        id: 0,
+      };
+
+      return JSON.stringify(dataObjectCreateGameResponse);
+    }
+    return '';
   }
 
   public updateWinnersHandler(): string {
