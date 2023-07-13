@@ -11,6 +11,7 @@ export const CONSTANTS_TYPE = {
   RANDOM_ATTACK: 'randomAttack',
   TURN: 'turn',
   FINISH: 'finish',
+  SINGLE_PLAY: 'single_play',
 } as const;
 
 export const CONSTANTS_STATUS = {

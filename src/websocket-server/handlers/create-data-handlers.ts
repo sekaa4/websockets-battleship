@@ -13,6 +13,7 @@ import { AddUserToRoom } from '../types/websocket-types/add-user-to-room.type';
 import { AddShips } from '../types/websocket-types/add-ships.type';
 import { RequestAttack } from '../types/websocket-types/attack.type';
 import { RandomAttack } from '../types/websocket-types/random-attack.type';
+import { randomUUID } from 'node:crypto';
 
 export class CreateDataHandlers {
   public clientState: WebSocketStateClient;
@@ -136,9 +137,9 @@ export class CreateDataHandlers {
           });
         }
 
-        const ship = this.responseHandlers.addShipsHandler(validDataOrError);
+        const shipResponse = this.responseHandlers.addShipsHandler(validDataOrError);
 
-        if (!ship) {
+        if (!shipResponse) {
           return JSON.stringify({
             type: CONSTANTS_TYPE.ADD_SHIPS,
             error: true,
@@ -146,9 +147,9 @@ export class CreateDataHandlers {
           });
         }
 
-        if (ship === 'not ready') {
+        if (shipResponse === 'not ready') {
           return;
-        } else if (ship) {
+        } else if (shipResponse) {
           const clients = this.wsServer.clients as Set<WebSocketStateClient>;
 
           for (const client of clients) {
@@ -214,6 +215,7 @@ export class CreateDataHandlers {
             client.playerInfo &&
             client.playerInfo.idGame === this.clientState.playerInfo.idGame
           ) {
+            console.log('client.playerInfo.isSingleGame', client.playerInfo.isSingleGame);
             if (typeof attack === 'string') {
               client.send(attack);
             } else if (typeof attack === 'object' && 'currentPlayer' in attack) {
@@ -240,10 +242,85 @@ export class CreateDataHandlers {
                 count = 1;
                 this.updateWinners();
               } else {
+                if (client.playerInfo.isSingleGame) {
+                  client.playerInfo.isSingleGame = false;
+                  this.updateWinners();
+                  continue;
+                }
                 count++;
               }
             }
+
+            if (client.playerInfo.isSingleGame) {
+              const { index, idGame } = client.playerInfo.botInfo;
+
+              const botRandomAttackData = {
+                gameId: idGame,
+                indexPlayer: index,
+              };
+
+              let isShot = false;
+              do {
+                const attack = this.responseHandlers.randomAttackHandler(botRandomAttackData);
+
+                //// ////////////////////////////////////////////////////////////
+                if (typeof attack === 'string') {
+                  isShot = attack.includes('shot') ? true : false;
+
+                  setTimeout(() => {
+                    client.send(attack);
+                  }, 2000);
+                } else if (typeof attack === 'object' && 'currentPlayer' in attack) {
+                  const { aroundPositions, killedPositions, currentPlayer } = attack;
+                  for (const position of killedPositions) {
+                    const killedResponse = this.responseHandlers.createAttackResponse(
+                      currentPlayer,
+                      'killed',
+                      position,
+                    );
+                    setTimeout(() => {
+                      client.send(killedResponse);
+                    }, 2000);
+                  }
+                  for (const position of aroundPositions) {
+                    const missResponse = this.responseHandlers.createAttackResponse(currentPlayer, 'miss', position);
+                    setTimeout(() => {
+                      client.send(missResponse);
+                    }, 2000);
+                  }
+
+                  isShot = true;
+                }
+                const gameId = client.playerInfo.idGame;
+                const finish = this.responseHandlers.checkFinishGame(gameId);
+                const currentPlayerResponse = this.responseHandlers.updateCurrentPlayerHandler(gameId);
+                setTimeout(() => {
+                  client.send(currentPlayerResponse);
+                }, 2000);
+
+                if (finish) {
+                  setTimeout(() => {
+                    client.send(finish);
+                  }, 2000);
+                  isShot = false;
+                  client.playerInfo.isSingleGame = false;
+                  const rooms = this.responseHandlers.updateRoomHandler();
+                  setTimeout(() => {
+                    client.send(rooms);
+                  }, 2000);
+                }
+              } while (isShot);
+            }
           }
+        }
+        return;
+      }
+
+      case CONSTANTS_TYPE.SINGLE_PLAY: {
+        if (this.clientState.readyState === WebSocket.OPEN && this.clientState.playerInfo) {
+          const gameResponse = this.responseHandlers.createSingleGameResponse(this.clientState);
+
+          this.clientState.send(gameResponse);
         }
         return;
       }

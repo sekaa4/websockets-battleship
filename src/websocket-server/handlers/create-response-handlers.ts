@@ -12,7 +12,6 @@ import { ResponseError } from '../types/websocket-types/response-error.type';
 import { ResponseValidPlayer } from '../types/websocket-types/response-valid-player';
 import { AddUserToRoom } from '../types/websocket-types/add-user-to-room.type';
 import { CreateGame } from '../types/websocket-types/create-game.type';
-import { Game } from '../types/game.type';
 import { Ship } from '../types/websocket-types/ship.type';
 import { AddShips } from '../types/websocket-types/add-ships.type';
 import { RequestAttack } from '../types/websocket-types/attack.type';
@@ -21,12 +20,8 @@ import { Position } from '../types/position.type';
 import { AttackAround } from '../types/attack-around.type';
 import { RandomAttack } from '../types/websocket-types/random-attack.type';
 import { Winner } from '../types/winner.type';
-
-const usersData: DataUser[] = [];
-
-const rooms: Room[] = [];
-
-const games: Game[] = [];
+import { botShipsData } from '../model/bot-ships-data';
+import { games, rooms, singleGames, usersData } from '../model/data';
 
 const winners: Winner[] = [];
 export class CreateResponseHandlers {
@@ -52,8 +47,8 @@ export class CreateResponseHandlers {
       user = { ...webSocketData };
     } else {
       user = {
-        name: name,
-        password: password,
+        name,
+        password,
       };
 
       usersData.push(user);
@@ -62,13 +57,19 @@ export class CreateResponseHandlers {
     console.log('usersData', usersData);
 
     this.clientState.playerInfo = {
-      ...user,
+      name,
       index: randomUUID(),
       roomId: '',
       idGame: '',
       ships: [],
       startPosition: '',
       fieldShips: [],
+      isSingleGame: false,
+      botInfo: {
+        name: '',
+        index: '',
+        idGame: '',
+      },
     };
 
     const dataObjectPlayerResponse = {
@@ -150,7 +151,7 @@ export class CreateResponseHandlers {
   public addShipsHandler = (webSocketData: AddShips['data']): string => {
     const { index, idGame } = this.clientState.playerInfo;
     const { gameId, indexPlayer, ships } = webSocketData;
-    const game = games.find((game) => game.idGame === gameId);
+    const game = games.find((game) => game.idGame === gameId) ?? singleGames.find((game) => game.idGame === gameId);
 
     if (idGame === gameId && game) {
       this.clientState.playerInfo.ships = ships;
@@ -192,8 +193,7 @@ export class CreateResponseHandlers {
 
   public attackHandler = (webSocketData: RequestAttack['data']): string | AttackAround | ResponseError => {
     const { gameId, x, y, indexPlayer } = webSocketData;
-    const game = games.find((game) => game.idGame === gameId);
-
+    const game = games.find((game) => game.idGame === gameId) ?? singleGames.find((game) => game.idGame === gameId);
     if (game && game.currentPlayer === indexPlayer) {
       const nextPlayer = game.gameUsers.find((user) => user.index !== game.currentPlayer);
       let response: string;
@@ -244,6 +244,8 @@ export class CreateResponseHandlers {
               });
 
               user.shipsAlive--;
+
+              console.log('user.shipsAlive', user.shipsAlive);
               game.stage = user.shipsAlive === 0 ? 'finish' : game.stage;
 
               return { currentPlayer: indexPlayer, killedPositions, aroundPositions };
@@ -282,7 +284,8 @@ export class CreateResponseHandlers {
   }
 
   public updateCurrentPlayerHandler = (idGame: string): string => {
-    const game = games.find((game) => game.idGame === idGame);
+    const game = games.find((game) => game.idGame === idGame) ?? singleGames.find((game) => game.idGame === idGame);
+
     const currentPlayer = game && game.currentPlayer;
 
     const dataObjectUpdateRoomResponse = {
@@ -341,6 +344,60 @@ export class CreateResponseHandlers {
     return JSON.stringify(dataObjectCreateGameResponse);
   }
 
+  public createSingleGameResponse(client: WebSocketStateClient): string {
+    const { index, name } = client.playerInfo;
+    const idGame = randomUUID();
+
+    const gameData: CreateGame['data'] = {
+      idGame,
+      idPlayer: index,
+    };
+
+    console.log('gameData', gameData);
+
+    const botClient = {
+      name: 'botClient',
+      index: randomUUID(),
+      fieldShips: this.randomFieldShips(),
+      shipsAlive: 10,
+    };
+
+    const user = {
+      name,
+      index,
+      fieldShips: [],
+      shipsAlive: 10,
+    };
+
+    const game = {
+      stage: 'ready',
+      idGame,
+      currentPlayer: index,
+      gameUsers: [botClient, user],
+      gameWinner: '',
+    };
+
+    singleGames.push(game);
+
+    const dataObjectCreateSingleGameResponse = {
+      type: CONSTANTS_TYPE.CREATE_GAME,
+      data: JSON.stringify(gameData),
+      id: 0,
+    };
+
+    client.playerInfo.idGame = idGame;
+    client.playerInfo.isSingleGame = true;
+    client.playerInfo.botInfo = { name: botClient.name, index: botClient.index, idGame };
+    return JSON.stringify(dataObjectCreateSingleGameResponse);
+  }
+
+  private randomFieldShips(): (number | CellState)[][] {
+    const randomTemplate = Math.floor(Math.random() * 10);
+
+    const templateShips = this.createFieldShips(botShipsData[randomTemplate] as Ship[]);
+    return templateShips;
+  }
+
   public createAttackResponse(index: string, status: string, position: Position): string {
     const data = {
       position,
@@ -356,7 +413,7 @@ export class CreateResponseHandlers {
   }
 
   public checkFinishGame(gameId: string): false | string {
-    const game = games.find((game) => game.idGame === gameId);
+    const game = games.find((game) => game.idGame === gameId) ?? singleGames.find((game) => game.idGame === gameId);
 
     if (game && game.stage === 'finish') {
       const winUser = game.gameUsers.find((user) => user.index === game.currentPlayer);
@@ -443,6 +500,8 @@ export class CreateResponseHandlers {
     const field: (number | CellState)[][] = Array(10)
       .fill(0)
       .map(() => Array(10).fill(0));
+
+    console.log('ships', ships);
 
     for (const ship of ships) {
       const {
