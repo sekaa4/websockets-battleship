@@ -264,9 +264,7 @@ export class CreateDataHandlers {
                 if (typeof attack === 'string') {
                   isShot = attack.includes('shot') ? true : false;
 
-                  setTimeout(() => {
-                    client.send(attack);
-                  }, 2000);
+                  client.send(attack);
                 } else if (typeof attack === 'object' && 'currentPlayer' in attack) {
                   const { aroundPositions, killedPositions, currentPlayer } = attack;
                   for (const position of killedPositions) {
@@ -275,15 +273,13 @@ export class CreateDataHandlers {
                       'killed',
                       position,
                     );
-                    setTimeout(() => {
-                      client.send(killedResponse);
-                    }, 2000);
+
+                    client.send(killedResponse);
                   }
                   for (const position of aroundPositions) {
                     const missResponse = this.responseHandlers.createAttackResponse(currentPlayer, 'miss', position);
-                    setTimeout(() => {
-                      client.send(missResponse);
-                    }, 2000);
+
+                    client.send(missResponse);
                   }
 
                   isShot = true;
@@ -291,20 +287,17 @@ export class CreateDataHandlers {
                 const gameId = client.playerInfo.idGame;
                 const finish = this.responseHandlers.checkFinishGame(gameId);
                 const currentPlayerResponse = this.responseHandlers.updateCurrentPlayerHandler(gameId);
-                setTimeout(() => {
-                  client.send(currentPlayerResponse);
-                }, 2000);
+
+                client.send(currentPlayerResponse);
 
                 if (finish) {
-                  setTimeout(() => {
-                    client.send(finish);
-                  }, 2000);
+                  client.send(finish);
+
                   isShot = false;
                   client.playerInfo.isSingleGame = false;
                   const rooms = this.responseHandlers.updateRoomHandler();
-                  setTimeout(() => {
-                    client.send(rooms);
-                  }, 2000);
+
+                  client.send(rooms);
                 }
               } while (isShot);
             }
