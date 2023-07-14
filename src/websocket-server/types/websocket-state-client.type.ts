@@ -5,7 +5,6 @@ import { Ship } from './websocket-types/ship.type';
 export interface WebSocketStateClient extends WebSocket {
   playerInfo: {
     name: string;
-    // password: string;
     index: string;
     roomId: string;
     idGame: string;

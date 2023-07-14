@@ -1,19 +1,18 @@
-/* eslint-disable max-lines-per-function */
-import { CONSTANTS_TYPE } from '../types/constants';
-import { RequestReg } from '../types/websocket-types';
-import { BasePacket } from '../types/websocket-types/base-packet.type';
-
-import { WebSocketStateClient } from '../types/websocket-state-client.type';
-import { DataRequest } from '../types/websocket-types/data-request.type';
-import { CreateResponseHandlers } from './create-response-handlers';
-import { ResponseValidPlayer } from '../types/websocket-types/response-valid-player';
-import { CreateNewRoom } from '../types/websocket-types/create-new-room.type';
 import WebSocket, { WebSocketServer } from 'ws';
-import { AddUserToRoom } from '../types/websocket-types/add-user-to-room.type';
-import { AddShips } from '../types/websocket-types/add-ships.type';
-import { RequestAttack } from '../types/websocket-types/attack.type';
-import { RandomAttack } from '../types/websocket-types/random-attack.type';
-import { randomUUID } from 'node:crypto';
+import {
+  AddShips,
+  AddUserToRoom,
+  BasePacket,
+  CreateNewRoom,
+  DataRequest,
+  RandomAttack,
+  RequestAttack,
+  RequestReg,
+  ResponseValidPlayer,
+} from '../types/websocket-types';
+import { WebSocketStateClient, CONSTANTS_TYPE } from '../types';
+
+import { CreateResponseHandlers } from './create-response-handlers';
 
 export class CreateDataHandlers {
   public clientState: WebSocketStateClient;
@@ -215,7 +214,6 @@ export class CreateDataHandlers {
             client.playerInfo &&
             client.playerInfo.idGame === this.clientState.playerInfo.idGame
           ) {
-            console.log('client.playerInfo.isSingleGame', client.playerInfo.isSingleGame);
             if (typeof attack === 'string') {
               client.send(attack);
             } else if (typeof attack === 'object' && 'currentPlayer' in attack) {
@@ -263,7 +261,6 @@ export class CreateDataHandlers {
               do {
                 const attack = this.responseHandlers.randomAttackHandler(botRandomAttackData);
 
-                //// ////////////////////////////////////////////////////////////
                 if (typeof attack === 'string') {
                   isShot = attack.includes('shot') ? true : false;
 
@@ -343,9 +340,6 @@ export class CreateDataHandlers {
   }
 
   public disconnectHandler = (index: string, roomId: string, idGame: string): string => {
-    console.log('index', index);
-    console.log('roomId', roomId);
-    console.log('idGame', idGame);
     if (roomId) {
       const roomsResponse = this.responseHandlers.updateRoomHandler(roomId);
       const clients = this.wsServer.clients as Set<WebSocketStateClient>;

@@ -29,8 +29,6 @@ export class CreateHandlers {
     if (isValidData) {
       const webSocketDataResponse = this.dataHandlers.webSocketDataHandler(data);
 
-      // console.log('first', this.wsClient);
-
       if (webSocketDataResponse) {
         this.wsClient.send(webSocketDataResponse);
       }
@@ -39,14 +37,10 @@ export class CreateHandlers {
 
   private disconnect = (): void => {
     console.log('WebSocket client disconnect');
-    console.log(this.wsClient.playerInfo);
 
     if (Object.hasOwn(this.wsClient, 'playerInfo')) {
-      console.log(this.wsClient.playerInfo);
       const { index, roomId, idGame } = (this.wsClient as WebSocketStateClient).playerInfo;
       const webSocketDataResponse = this.dataHandlers.disconnectHandler(index, roomId, idGame);
-
-      // console.log('first', this.wsClient);
 
       if (webSocketDataResponse) {
         this.wsClient.send(webSocketDataResponse);

@@ -9,7 +9,6 @@ export class CreateWebSocketServer {
     this.port = port;
     this.wss = new WebSocketServer({ port });
 
-    // this.handlers = new CreateHandlers(this.wss);
     this.createListener();
   }
 

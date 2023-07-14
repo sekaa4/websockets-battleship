@@ -1,27 +1,30 @@
-/* eslint-disable @typescript-eslint/no-non-null-assertion */
-/* eslint-disable unicorn/new-for-builtins */
-/* eslint-disable max-lines-per-function */
 import { randomUUID } from 'node:crypto';
-import { CONSTANTS_TYPE } from '../types/constants';
-import { Room } from '../types/room.type';
-import { User } from '../types/user.type';
-import { DataUser } from '../types/data-user.type';
-import { WebSocketStateClient } from '../types/websocket-state-client.type';
-import { RequestReg } from '../types/websocket-types';
-import { ResponseError } from '../types/websocket-types/response-error.type';
-import { ResponseValidPlayer } from '../types/websocket-types/response-valid-player';
-import { AddUserToRoom } from '../types/websocket-types/add-user-to-room.type';
-import { CreateGame } from '../types/websocket-types/create-game.type';
-import { Ship } from '../types/websocket-types/ship.type';
-import { AddShips } from '../types/websocket-types/add-ships.type';
-import { RequestAttack } from '../types/websocket-types/attack.type';
-import { CellState } from '../types/cell-state.type';
-import { Position } from '../types/position.type';
-import { AttackAround } from '../types/attack-around.type';
-import { RandomAttack } from '../types/websocket-types/random-attack.type';
-import { Winner } from '../types/winner.type';
 import { botShipsData } from '../model/bot-ships-data';
 import { games, rooms, singleGames, usersData } from '../model/data';
+
+import {
+  AddShips,
+  AddUserToRoom,
+  CreateGame,
+  RandomAttack,
+  RequestAttack,
+  RequestReg,
+  ResponseError,
+  ResponseValidPlayer,
+  Ship,
+} from '../types/websocket-types';
+
+import {
+  Winner,
+  WebSocketStateClient,
+  DataUser,
+  CONSTANTS_TYPE,
+  Room,
+  User,
+  AttackAround,
+  CellState,
+  Position,
+} from '../types';
 
 const winners: Winner[] = [];
 export class CreateResponseHandlers {
@@ -53,8 +56,6 @@ export class CreateResponseHandlers {
 
       usersData.push(user);
     }
-
-    console.log('usersData', usersData);
 
     this.clientState.playerInfo = {
       name,
@@ -245,7 +246,6 @@ export class CreateResponseHandlers {
 
               user.shipsAlive--;
 
-              console.log('user.shipsAlive', user.shipsAlive);
               game.stage = user.shipsAlive === 0 ? 'finish' : game.stage;
 
               return { currentPlayer: indexPlayer, killedPositions, aroundPositions };
@@ -352,8 +352,6 @@ export class CreateResponseHandlers {
       idGame,
       idPlayer: index,
     };
-
-    console.log('gameData', gameData);
 
     const botClient = {
       name: 'botClient',
@@ -500,8 +498,6 @@ export class CreateResponseHandlers {
     const field: (number | CellState)[][] = Array(10)
       .fill(0)
       .map(() => Array(10).fill(0));
-
-    console.log('ships', ships);
 
     for (const ship of ships) {
       const {

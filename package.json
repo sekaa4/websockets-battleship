@@ -1,7 +1,7 @@
 {
-  "name": "ws_task",
+  "name": "websocket-battleship",
   "version": "1.0.0",
-  "description": "Template for the WebSocket remote control task",
+  "description": "Backend with WebSocket for battleship task",
   "main": "index.ts",
   "engines": {
     "node": ">=18.0.0"
@@ -12,7 +12,7 @@
     "start:prod": "npm run build && node dist",
     "build": "webpack"
   },
-  "author": "Andrei Auchynnikau",
+  "author": "sekaa4",
   "keywords": [],
   "license": "ISC",
   "devDependencies": {
