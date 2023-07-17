@@ -257,13 +257,10 @@ export class CreateDataHandlers {
                 indexPlayer: index,
               };
 
-              let isShot = false;
-              do {
+              setTimeout(() => {
                 const attack = this.responseHandlers.randomAttackHandler(botRandomAttackData);
 
                 if (typeof attack === 'string') {
-                  isShot = attack.includes('shot') ? true : false;
-
                   client.send(attack);
                 } else if (typeof attack === 'object' && 'currentPlayer' in attack) {
                   const { aroundPositions, killedPositions, currentPlayer } = attack;
@@ -281,8 +278,6 @@ export class CreateDataHandlers {
 
                     client.send(missResponse);
                   }
-
-                  isShot = true;
                 }
                 const gameId = client.playerInfo.idGame;
                 const finish = this.responseHandlers.checkFinishGame(gameId);
@@ -293,13 +288,12 @@ export class CreateDataHandlers {
                 if (finish) {
                   client.send(finish);
 
-                  isShot = false;
                   client.playerInfo.isSingleGame = false;
                   const rooms = this.responseHandlers.updateRoomHandler();
 
                   client.send(rooms);
                 }
-              } while (isShot);
+              }, 1000);
             }
           }
         }
