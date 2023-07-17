@@ -1,0 +1,12 @@
+export type { RequestReg, ResponseReg } from './reg.type';
+export type { ResponseError } from './response-error.type';
+export type { ResponseValidPlayer } from './response-valid-player';
+export type { AddUserToRoom } from './add-user-to-room.type';
+export type { CreateGame } from './create-game.type';
+export type { Ship } from './ship.type';
+export type { AddShips } from './add-ships.type';
+export type { RequestAttack } from './attack.type';
+export type { RandomAttack } from './random-attack.type';
+export type { BasePacket } from './base-packet.type';
+export type { CreateNewRoom } from './create-new-room.type';
+export type { DataRequest } from './data-request.type';
